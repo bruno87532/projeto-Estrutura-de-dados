@@ -11,6 +11,7 @@ typedef struct participante{
 	int semestre;
 	int ano_ingresso;
 	string curso;
+	bool pagante;
 }PARTICIPANTE;
 
 typedef struct node{
@@ -40,10 +41,10 @@ void inicializa_comunidade(COMUNIDADE *comunidade);
 void adiciona_participante(COMUNIDADE *comunidade);
 int valida_semestre(const string &nome);
 struct tm* retorna_data();
-int valida_ingresso(const int &ano, const string &nome, int valor);
+int valida_ingresso(const int &ano, const string &nome);
 string valida_curso(const string &nome);
-void imprime_participante(COMUNIDADE *comunidade);
-int localiza_aluno(COMUNIDADE *comunidade, int valor);
+void imprime_participante(COMUNIDADE *comunidade, PAGANTE *pagante);
+PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, int valor);
 void edita_aluno(NODE *aluno);
 void chama_edita_aluno(NODE *aluno);
 void inicializa_pagante(PAGANTE *pagante);
@@ -90,7 +91,7 @@ int main(int argc, char** argv) {
 				localiza_aluno(comunidade, 1);
 				break;
 			case 3:
-				imprime_participante(comunidade);
+				imprime_participante(comunidade, pagante);
 				break;
 			case 4:
 				adiciona_pagante(pagante, comunidade);
@@ -118,8 +119,9 @@ void adiciona_participante(COMUNIDADE *comunidade){
 	struct tm *data_atual;
 	data_atual = retorna_data();
 	int ano = data_atual->tm_year+1900;
-	novo->participante.ano_ingresso = valida_ingresso(ano, novo->participante.primeiro_nome, 1); // Função para verificar se o ano que o participante ingressou está dentro do prazo de conclusão de curso
+	novo->participante.ano_ingresso = valida_ingresso(ano, novo->participante.primeiro_nome); // Função para verificar se o ano que o participante ingressou está dentro do prazo de conclusão de curso
 	novo->participante.curso = valida_curso(novo->participante.primeiro_nome); // Função para verificar se o curso do usuário é válido
+	novo->participante.pagante = false;
 	if(comunidade->primeiro == NULL){
 		comunidade->primeiro = novo;
 	}else{
@@ -162,15 +164,11 @@ struct tm* retorna_data(){
 	return tempo;
 }
 
-int valida_ingresso(const int &ano, const string &nome = "", int valor = 0){
+int valida_ingresso(const int &ano, const string &nome){
 	int retorno_ano = 0;
 	string valida_ano;
 	do{
-		if(valor == 1){
-			cout << "Digite o ano que o participante "<<nome<<" ingressou na Fatec: ";
-		}else{
-			cout << "Digite o ano da contribuição do participante: ";
-		}
+		cout << "Digite o ano que o participante "<<nome<<" ingressou na Fatec: ";
 		cin >> valida_ano;
 		if(valida_ano.length() != 4){ // Verifica se o ano tem 4 dígitos, caso não, executa o do while novamente
 			cerr << "O ano de ingresso deve ter 4 dígitos!!"<<endl;
@@ -192,11 +190,7 @@ int valida_ingresso(const int &ano, const string &nome = "", int valor = 0){
 				if(ano_convertido <= ano && ano_convertido >= ano - 5){ // verifica se está dentro do prazo de conclusão de curso
 					retorno_ano = ano_convertido;
 				}else{
-					if(valor == 1){
-						cerr << "O participante "<<nome<<" deve estar dentro do prazo máximo de 10 semestres para a conclusão do curso!!"<<endl;
-					}else{
-						cout << "A contribuição do participante deve estar entre o prazo que o participante permaneceu na FATEC!!"<<endl;
-					}
+					cerr << "O participante "<<nome<<" deve estar dentro do prazo máximo de 10 semestres para a conclusão do curso!!"<<endl;
 					// Caso não esteja dentro do prazo, executa o do while novamente
 				}
 			}
@@ -220,7 +214,7 @@ string valida_curso(const string &nome){
 	return curso;
 }
 
-void imprime_participante(COMUNIDADE *comunidade){
+void imprime_participante(COMUNIDADE *comunidade, PAGANTE *pagante){
 	NODE *aux = comunidade->primeiro;
 	while(aux != NULL){
 		cout << "Número de identificação do aluno: "<<aux->participante.id<<endl;
@@ -228,12 +222,21 @@ void imprime_participante(COMUNIDADE *comunidade){
 		cout << "Semestre do aluno: "<<aux->participante.semestre<<endl;
 		cout << "Ano de ingresso do aluno: "<<aux->participante.ano_ingresso<<endl;
 		cout << "Curso do aluno: "<<aux->participante.curso<<endl;
+		if(aux->participante.pagante == true){
+			NODEP *pagantep = pagante->primeiro;
+			while(pagantep->id != aux->participante.id){
+				pagantep = pagantep->proximo;
+			}
+			cout << "Mes da contribuição: "<<pagantep->mes<<endl;
+			cout << "Ano da contribuição: "<<pagantep->ano<<endl;
+			cout << "Valor da contribuição: "<<pagantep->valor<<endl;
+		}
 		aux = aux->proximo;
 		cout <<"================"<<endl;
 	}
 }
 
-int localiza_aluno(COMUNIDADE *comunidade, int valor = 0){
+PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, int valor = 0){
 	int id = 0;
 	string valida_id;
 	bool verifica_if = false;
@@ -261,13 +264,13 @@ int localiza_aluno(COMUNIDADE *comunidade, int valor = 0){
 		if(percorre_participante->participante.id == id){
 			if(valor == 1){
 				edita_aluno(percorre_participante);
+				return NULL;
 			}
-			return id;
+			return &percorre_participante->participante;
 		}
 		percorre_participante = percorre_participante->proximo;
 	}
 	cerr << "Não há um participante com este ID!!"<<endl;
-	return 0;
 }
 
 void edita_aluno(NODE *aluno){
@@ -301,7 +304,7 @@ void edita_aluno(NODE *aluno){
 			break;
 		case 3:
 			cout << "Digite o novo ano de ingresso: ";
-			aluno->participante.ano_ingresso = valida_ingresso(ano, aluno->participante.primeiro_nome, 1);
+			aluno->participante.ano_ingresso = valida_ingresso(ano, aluno->participante.primeiro_nome);
 			break;
 		case 4:
 			cout << "Digite o novo curso do aluno: ";
@@ -337,12 +340,15 @@ void inicializa_pagante(PAGANTE *pagante){
 
 void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade){
 	NODEP *novo = new NODEP;
+	PARTICIPANTE *participante;
 	int id = 0;
 	int mes = 0;
 	int ano = 0;
 	do{
-		id = localiza_aluno(comunidade);
+		participante = localiza_aluno(comunidade);
+		id = participante->id;
 	}while(id == 0);
+	novo->id = id;
 	string valida_mes;
 	bool verifica_if;
 	do{
@@ -371,7 +377,7 @@ void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade){
 			}
 			if(!verifica_if){
 				stringstream converte(valida_mes);
-				cin >> mes;
+				converte >> mes;
 				if(mes < 1 || mes > 12){
 					cerr << "O mes deve estar entre 1 e 12!!"<<endl;
 					mes = 0;
@@ -381,9 +387,77 @@ void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade){
 			cerr << "O mes deve ter no máximo 2 caracteres!!"<<endl;
 		}
 	}while(mes == 0);
+	novo->mes = mes;
 	struct tm *data_atual;
 	data_atual = retorna_data();
 	ano = data_atual->tm_year+1900;
-	novo->ano = valida_ingresso(ano);
+	string valida_ano;
+	do{
+		verifica_if = false;
+		cout << "Digite o ano da contribuição: ";
+		cin >> valida_ano;
+		if(valida_ano.length() != 4){
+			cerr << "O ano da doação deve ter 4 dígitos!!"<<endl;
+		}else{
+			for(int x = 0; x < valida_ano.length(); x++){
+				if(!(isdigit(valida_ano[x]))){
+					cerr << "Todos os dígitos do ano devem ser numérico!!"<<endl;
+					verifica_if = true;
+					break;
+				}
+			}
+			if(!verifica_if){
+				stringstream converte(valida_ano);
+				converte >> novo->ano;
+				if(novo->ano < participante->ano_ingresso){
+					cerr << "O ano da contribuição deve ser maior que o ano de ingresso!!"<<endl;
+					novo->ano = 0;
+				}else{	
+					if(!(novo->ano <= ano && novo->ano >= ano - 5)){
+						cerr << "A contribuição deve ter ocorrido dentro do prazo de 10 semestres para a conclusão do curso!!"<<endl;
+						novo->ano = 0;	
+					}
+				}
+			}
+		}
+	}while(novo->ano == 0);
+	novo->valor = 0;
+	string valor;
+	int dot;
+	do{
+		dot = 0;
+		verifica_if = false;
+		cout << "Digite o valor da contribuição: ";
+		cin >> valor;
+		for(int x = 0; x < valor.length(); x++){
+			if(!(isdigit(valor[x]))){
+				dot++;
+				if(valor[x] == ',' || valor[x] == '.'){
+					valor[x] = '.';
+				}
+				if(dot > 1){
+					cerr << "Formato de valor inválido!"<<endl;
+					verifica_if = true;
+					break;
+				}
+				if(valor[x] != ',' && valor[x] != '.'){
+					cerr << "Não é permitido letras ou símbolos no valor (exceto ',' e '.')!!"<<endl;
+					verifica_if = true;
+					break;
+				}
+			}
+		}
+		if(!(verifica_if)){
+			stringstream converte(valor);
+			converte >> novo->valor;
+		}
+	}while(novo->valor == 0);
+	participante->pagante = true;
+	if(pagante->primeiro == NULL){
+		pagante->primeiro = novo;
+	}else{
+		pagante->ultimo->proximo = novo;
+	}
+	novo->proximo = NULL;
+	pagante->ultimo = novo;
 }
-
