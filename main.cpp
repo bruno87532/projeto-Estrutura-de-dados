@@ -3,6 +3,7 @@
 #include <cctype>
 #include <sstream>
 #include <time.h>
+#include <fstream>
 using namespace std;
 
 typedef struct participante{
@@ -49,6 +50,8 @@ void edita_aluno(NODE *aluno);
 void chama_edita_aluno(NODE *aluno);
 void inicializa_pagante(PAGANTE *pagante);
 void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade);
+void grava_participantes(COMUNIDADE *comunidade);
+void le_participantes(COMUNIDADE *comunidade);
 
 int main(int argc, char** argv) {
 	setlocale(LC_ALL, "Portuguese");
@@ -56,6 +59,7 @@ int main(int argc, char** argv) {
 	inicializa_comunidade(comunidade);
 	PAGANTE *pagante = new PAGANTE;
 	inicializa_pagante(pagante);
+	le_participantes(comunidade);
 	int menu = 0;
 	string valida_menu;
 	do{
@@ -66,11 +70,12 @@ int main(int argc, char** argv) {
 			cout << "2 - Editar um participante"<<endl;
 			cout << "3 - Exibir todos os participantes"<<endl;
 			cout << "4 - Cadastrar novo pagante"<<endl;
-			cout << "5 - Encerrar à aplicação"<<endl;
+			cout << "5 - Gravar dados dos participantes"<<endl;
+			cout << "6 - Encerrar à aplicação"<<endl;
 			cin >> valida_menu;
 			if(valida_menu.length() == 1){
 				if(isdigit(valida_menu[0])){
-					if(valida_menu != "1" && valida_menu != "2" && valida_menu != "3" && valida_menu != "4" && valida_menu != "5"){
+					if(valida_menu != "1" && valida_menu != "2" && valida_menu != "3" && valida_menu != "4" && valida_menu != "5" && valida_menu != "6"){
 						cerr << "Selecione uma opção do menu!!"<<endl;
 					}else{
 						stringstream converte(valida_menu);
@@ -95,6 +100,9 @@ int main(int argc, char** argv) {
 				break;
 			case 4:
 				adiciona_pagante(pagante, comunidade);
+				break;
+			case 5: 
+				grava_participantes(comunidade);
 				break;
 		}
 	}while(menu != 5);
@@ -202,15 +210,15 @@ int valida_ingresso(const int &ano, const string &nome){
 string valida_curso(const string &nome){
 	string curso;
 	do{
-		cout << "Digite o curso (DSM/GE) do participante "<<nome<<": ";
+		cout << "Digite o curso (DSM/SI/GE) do participante "<<nome<<": ";
 		cin >> curso;
 		for(int x = 0; x < curso.length(); x++){
 			curso[x] = toupper(curso[x]); // Transforma todas as letras em maiusculas, para caso o usuario tenha digitado um curso válido conclua o do while
 		}
-		if(curso != "DSM" && curso != "GE"){
-			cout << "O curso deve ser DSM ou GE"<<endl; // Exibe mensagem para caso o cursjo não seja válido
+		if(curso != "DSM" && curso != "GE" && curso != "SI"){
+			cout << "O curso deve ser DSM, SI ou GE"<<endl; // Exibe mensagem para caso o cursjo não seja válido
 		}
-	}while(curso != "DSM" && curso != "GE");
+	}while(curso != "DSM" && curso != "GE" && curso != "SI");
 	return curso;
 }
 
@@ -271,6 +279,7 @@ PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, int valor = 0){
 		percorre_participante = percorre_participante->proximo;
 	}
 	cerr << "Não há um participante com este ID!!"<<endl;
+	return NULL;
 }
 
 void edita_aluno(NODE *aluno){
@@ -346,7 +355,9 @@ void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade){
 	int ano = 0;
 	do{
 		participante = localiza_aluno(comunidade);
-		id = participante->id;
+        if(participante != NULL){
+			id = participante->id; 
+		}
 	}while(id == 0);
 	novo->id = id;
 	string valida_mes;
@@ -461,3 +472,39 @@ void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade){
 	novo->proximo = NULL;
 	pagante->ultimo = novo;
 }
+
+void grava_participantes(COMUNIDADE *comunidade){
+	NODE *membro = comunidade->primeiro;
+	ofstream grava_dados("participantes.txt");
+	if(!(grava_dados.is_open())){
+		cerr << "Não foi possível abrir o arquivo!!"<<endl;
+		return;
+	}
+	while(membro != NULL){
+		grava_dados << membro->participante.id << " " << membro->participante.primeiro_nome << " " << membro->participante.semestre << " " << membro->participante.ano_ingresso << " " << membro->participante.curso << " " << (membro->participante.pagante == true ? "true" : "false")<<endl;
+		membro = membro->proximo;
+	}
+}
+
+void le_participantes(COMUNIDADE *comunidade){
+	ifstream le_dados("participantes.txt");
+	if(!(le_dados.is_open())){
+		cerr << "Não foi possível abrir o arquivo!!"<<endl;
+	}
+	string membro;
+	while(getline(le_dados, membro)){
+		NODE *novo = new NODE;
+		istringstream converte(membro);
+		converte >> novo->participante.id >> novo->participante.primeiro_nome >> novo->participante.semestre >> novo->participante.ano_ingresso >> novo->participante.curso >> novo->participante.pagante;
+		if(comunidade->primeiro == NULL){
+			comunidade->primeiro = novo;
+		}else{
+			comunidade->ultimo->proximo = novo;
+		}
+		novo->proximo = NULL;
+		comunidade->ultimo = novo;
+	}
+}
+
+
+
