@@ -12,7 +12,7 @@ typedef struct participante{
 	int semestre;
 	int ano_ingresso;
 	string curso;
-	bool pagante;
+	int pagante;
 }PARTICIPANTE;
 
 typedef struct node{
@@ -45,13 +45,18 @@ struct tm* retorna_data();
 int valida_ingresso(const int &ano, const string &nome);
 string valida_curso(const string &nome);
 void imprime_participante(COMUNIDADE *comunidade, PAGANTE *pagante);
-PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, int valor);
+PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, const int &valor);
 void edita_aluno(NODE *aluno);
 void chama_edita_aluno(NODE *aluno);
 void inicializa_pagante(PAGANTE *pagante);
 void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade);
 void grava_participantes(COMUNIDADE *comunidade);
 void le_participantes(COMUNIDADE *comunidade);
+void grava_contribuentes(PAGANTE *pagante);
+void le_contribuentes(PAGANTE *pagante);
+void grava_parcom(COMUNIDADE *comunidade, PAGANTE *pagante);
+void grava_tudo(ofstream &arquivo, NODE *membro, PAGANTE *pagante);
+void destroi_leak(PAGANTE *pagante, COMUNIDADE *comunidade);
 
 int main(int argc, char** argv) {
 	setlocale(LC_ALL, "Portuguese");
@@ -60,6 +65,7 @@ int main(int argc, char** argv) {
 	PAGANTE *pagante = new PAGANTE;
 	inicializa_pagante(pagante);
 	le_participantes(comunidade);
+	le_contribuentes(pagante);
 	int menu = 0;
 	string valida_menu;
 	do{
@@ -103,9 +109,12 @@ int main(int argc, char** argv) {
 				break;
 			case 5: 
 				grava_participantes(comunidade);
+				grava_contribuentes(pagante);
+				grava_parcom(comunidade, pagante);
 				break;
 		}
-	}while(menu != 5);
+	}while(menu != 6);
+	destroi_leak(pagante, comunidade);
 	return 0;
 }
 
@@ -129,7 +138,7 @@ void adiciona_participante(COMUNIDADE *comunidade){
 	int ano = data_atual->tm_year+1900;
 	novo->participante.ano_ingresso = valida_ingresso(ano, novo->participante.primeiro_nome); // Função para verificar se o ano que o participante ingressou está dentro do prazo de conclusão de curso
 	novo->participante.curso = valida_curso(novo->participante.primeiro_nome); // Função para verificar se o curso do usuário é válido
-	novo->participante.pagante = false;
+	novo->participante.pagante = 0;
 	if(comunidade->primeiro == NULL){
 		comunidade->primeiro = novo;
 	}else{
@@ -222,7 +231,7 @@ string valida_curso(const string &nome){
 	return curso;
 }
 
-void imprime_participante(COMUNIDADE *comunidade, PAGANTE *pagante){
+void imprime_participante(COMUNIDADE *comunidade, PAGANTE *pagante){ // Função para imprimir participantes
 	NODE *aux = comunidade->primeiro;
 	while(aux != NULL){
 		cout << "Número de identificação do aluno: "<<aux->participante.id<<endl;
@@ -230,9 +239,9 @@ void imprime_participante(COMUNIDADE *comunidade, PAGANTE *pagante){
 		cout << "Semestre do aluno: "<<aux->participante.semestre<<endl;
 		cout << "Ano de ingresso do aluno: "<<aux->participante.ano_ingresso<<endl;
 		cout << "Curso do aluno: "<<aux->participante.curso<<endl;
-		if(aux->participante.pagante == true){
+		if(aux->participante.pagante == 1){ // Verificando se é um pagante
 			NODEP *pagantep = pagante->primeiro;
-			while(pagantep->id != aux->participante.id){
+			while(pagantep->id != aux->participante.id){ // Se for um pagante vai percorrer a lista de pagantes até encontrar o nó que corresponde ao seu e imprimir
 				pagantep = pagantep->proximo;
 			}
 			cout << "Mes da contribuição: "<<pagantep->mes<<endl;
@@ -244,7 +253,7 @@ void imprime_participante(COMUNIDADE *comunidade, PAGANTE *pagante){
 	}
 }
 
-PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, int valor = 0){
+PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, const int &valor = 0){
 	int id = 0;
 	string valida_id;
 	bool verifica_if = false;
@@ -258,10 +267,10 @@ PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, int valor = 0){
 				verifica_if = true;
 				break;
 			}
-		}
+		} // Este for verifica se tem algum digito não numérico no id do participante, se tiver vai tornar verifica_if true, impedindo a execução do if abaixo, pedindo o id novamente
 		if(!verifica_if){
-			stringstream converte(valida_id);
-			converte >> id;
+			stringstream converte(valida_id); 
+			converte >> id; 
 			if(id == 0){
 				cerr << "Não há participante com o ID 0!!"<<endl;
 			}
@@ -271,10 +280,10 @@ PARTICIPANTE* localiza_aluno(COMUNIDADE *comunidade, int valor = 0){
 	while(percorre_participante != NULL){
 		if(percorre_participante->participante.id == id){
 			if(valor == 1){
-				edita_aluno(percorre_participante);
+				edita_aluno(percorre_participante); // Passa o aluno para pode editar;
 				return NULL;
 			}
-			return &percorre_participante->participante;
+			return &percorre_participante->participante; // Retorna um id valido, permitindo adicionar um pagante
 		}
 		percorre_participante = percorre_participante->proximo;
 	}
@@ -299,9 +308,9 @@ void edita_aluno(NODE *aluno){
 			stringstream converte(valida_menu);
 			converte >> menu;
 		}
-	}while(menu == 0);
+	}while(menu == 0); // Validação do menu, semelhante a do outro menu
 	struct tm *data_atual = retorna_data();
-	int ano = data_atual->tm_year + 1900;
+	int ano = data_atual->tm_year + 1900; // Soma com 1900 pois ele retorna quantos anos se passou desde 1900
 	switch(menu){
 		case 1: 
 			cout << "Digite o novo nome: ";
@@ -340,8 +349,7 @@ void chama_edita_aluno(NODE *aluno){
 			cerr << "Selecione uma opção válida!!"<<endl;
 		}
 	}while(nova_alteracao != "1" && nova_alteracao != "2");
-}
-
+} // Função para verificar se quer editar mais coisas do aluno
 void inicializa_pagante(PAGANTE *pagante){
 	pagante->primeiro = NULL;
 	pagante->ultimo = NULL;
@@ -463,7 +471,7 @@ void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade){
 			converte >> novo->valor;
 		}
 	}while(novo->valor == 0);
-	participante->pagante = true;
+	participante->pagante = 1;
 	if(pagante->primeiro == NULL){
 		pagante->primeiro = novo;
 	}else{
@@ -473,23 +481,73 @@ void adiciona_pagante(PAGANTE *pagante, COMUNIDADE *comunidade){
 	pagante->ultimo = novo;
 }
 
-void grava_participantes(COMUNIDADE *comunidade){
+void grava_participantes(COMUNIDADE *comunidade){ // Função para gravar participantes
 	NODE *membro = comunidade->primeiro;
-	ofstream grava_dados("participantes.txt");
+	ofstream grava_dados("participantes.txt"); // Cria e abre o arquivo
 	if(!(grava_dados.is_open())){
 		cerr << "Não foi possível abrir o arquivo!!"<<endl;
 		return;
 	}
 	while(membro != NULL){
-		grava_dados << membro->participante.id << " " << membro->participante.primeiro_nome << " " << membro->participante.semestre << " " << membro->participante.ano_ingresso << " " << membro->participante.curso << " " << (membro->participante.pagante == true ? "true" : "false")<<endl;
+		grava_dados << membro->participante.id << " " << membro->participante.primeiro_nome << " " << membro->participante.semestre << " " << membro->participante.ano_ingresso << " " << membro->participante.curso << " " << membro->participante.pagante<<endl;
 		membro = membro->proximo;
 	}
+	grava_dados.close();
+}
+
+void grava_contribuentes(PAGANTE *pagante){
+	NODEP *contribuente = pagante->primeiro;
+	ofstream grava_dados("contribuentes.txt");
+	if(!(grava_dados.is_open())){
+		cerr << "Não foi possível abrir o arquivo!!"<<endl;
+		return;
+	}
+	while(contribuente != NULL){
+		grava_dados << contribuente->id << " " << contribuente->mes << " " << contribuente->ano << " " << contribuente->valor<<endl;
+		contribuente = contribuente->proximo;
+	}
+	grava_dados.close();
+}
+
+void grava_parcom(COMUNIDADE *comunidade, PAGANTE *pagante){
+	NODE *membro = comunidade->primeiro;
+	ofstream dsm("contribuentes_DSM.txt");
+	ofstream si("contribuentes_SI.txt");
+	ofstream ge("contribuentes_GE.txt");
+	if(!(dsm.is_open() || si.is_open() || ge.is_open())){
+		cerr << "Não foi possível abrir o arquivo!!"<<endl;
+		return;
+	}
+	while(membro != NULL){
+		if(membro->participante.pagante == 1){
+			if(membro->participante.curso == "DSM"){
+				grava_tudo(dsm, membro, pagante);
+			}else if(membro->participante.curso == "SI"){
+				grava_tudo(si, membro, pagante);
+			}else{
+				grava_tudo(ge, membro, pagante);
+			}
+		}
+		membro = membro->proximo;
+	}
+	dsm.close();
+	si.close();
+	ge.close();
+}
+
+void grava_tudo(ofstream &arquivo, NODE *membro, PAGANTE *pagante){
+	NODEP *contribuente = pagante->primeiro;
+	while(membro->participante.id != contribuente->id){
+		contribuente = contribuente->proximo;
+	}
+	arquivo << membro->participante.id << " " << membro->participante.primeiro_nome << " " << membro->participante.semestre << " " << membro->participante.ano_ingresso << " " << contribuente->mes << " " << contribuente->ano << " " << contribuente->valor<<endl;
 }
 
 void le_participantes(COMUNIDADE *comunidade){
 	ifstream le_dados("participantes.txt");
 	if(!(le_dados.is_open())){
 		cerr << "Não foi possível abrir o arquivo!!"<<endl;
+		return;
 	}
 	string membro;
 	while(getline(le_dados, membro)){
@@ -504,7 +562,46 @@ void le_participantes(COMUNIDADE *comunidade){
 		novo->proximo = NULL;
 		comunidade->ultimo = novo;
 	}
+	le_dados.close();
 }
 
+void le_contribuentes(PAGANTE *pagante){
+	ifstream le_dados("contribuentes.txt");
+	if(!(le_dados.is_open())){
+		cerr << "Não foi possível abrir o arquivo!!"<<endl;
+		return;
+	}
+	string contribuente;
+	while(getline(le_dados, contribuente)){
+		NODEP *novo = new NODEP;
+		istringstream converte(contribuente);
+		converte >> novo->id >> novo->mes >> novo->ano >> novo->valor;
+		if(pagante->primeiro == NULL){
+			pagante->primeiro = novo;
+		}else{
+			pagante->ultimo->proximo = novo;
+		}
+		novo->proximo = NULL;
+		pagante->ultimo = novo;
+	}
+	le_dados.close();
+}
+
+void destroi_leak(PAGANTE *pagante, COMUNIDADE *comunidade){
+	NODE *node = comunidade->primeiro;
+	while(node != NULL){
+		NODE *temp = node;
+		node = node->proximo;
+		delete temp;
+	}
+	delete comunidade;
+	NODEP *nodep = pagante->primeiro;
+	while(nodep != NULL){
+		NODEP *temp = nodep;
+		nodep = nodep->proximo;
+		delete temp;
+	}
+	delete pagante;
+}
 
 
