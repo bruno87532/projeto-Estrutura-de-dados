@@ -546,7 +546,6 @@ void grava_tudo(ofstream &arquivo, NODE *membro, PAGANTE *pagante){
 void le_participantes(COMUNIDADE *comunidade){
 	ifstream le_dados("participantes.txt");
 	if(!(le_dados.is_open())){
-		cerr << "Ainda não foram adicionados participantes!!"<<endl;
 		return;
 	}
 	string membro;
@@ -568,7 +567,6 @@ void le_participantes(COMUNIDADE *comunidade){
 void le_contribuentes(PAGANTE *pagante){
 	ifstream le_dados("contribuentes.txt");
 	if(!(le_dados.is_open())){
-		cerr << "Não foram adicionados contribuentes!!"<<endl;
 		return;
 	}
 	string contribuente;
